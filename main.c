@@ -57,8 +57,8 @@
 
 
 #define LWIP_PTP
-#define z2_synq
-#define z3_synq
+//#define z2_synq
+//#define z3_synq
 
 #define ptp_port 	1234
 /* USER CODE END Includes */
@@ -571,7 +571,11 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 			 // free the UDP connection, so we can accept new clients 
 			//udp_disconnect(udpc);
 		}
-	else if(synq_state==1)	{t2 = rx_ts;}
+	else if(synq_state==1)	
+		{
+			t2 = rx_ts;
+			synq_interval = (rcv_buf[2] >>8) * 1000000;
+		}
 	else if(synq_state==2)	
 			{
 			 //pbuf_copy_partial( p, rcv_buf, p->len, 0); 
@@ -625,6 +629,33 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 							rad_ofset++;
 							offset_mod_flag = 1;
 						}
+					else
+						{
+							offset_ns_float = offset.TimeStampLow;
+						  //offset_ns_float = -(stf4.TimeStampLow - mtf4.TimeStampLow - pr_delay.TimeStampLow)/2;
+						  adm_rate = (offset_ns_float/synq_interval) + 1;
+							addend0 = ETH->PTPTSAR;
+							addend = adm_rate * addend0 ;
+							adj_freq( addend );
+							t_ofsset = my_abs(offset.TimeStampLow);
+							if(t_ofsset < 50 ){ cn1++;}
+							else if(t_ofsset < 100 ){ cn2++;}
+							else if(t_ofsset < 150 ){ cn3++;}
+							else if(t_ofsset < 200 ){ cn4++;}
+							else if(t_ofsset < 250 ){ cn5++;}
+							else if(t_ofsset < 300 ){ cn6++;}
+							else if(t_ofsset < 400 ){ cn7++;}
+							else if(t_ofsset < 500 ){ cn8++;}
+							else if(t_ofsset < 600 ){ cn9++;}
+							else if(t_ofsset < 800 ){ cn10++;}
+							else if(t_ofsset < 1000 ){ cn11++;}
+							else  	cn12++;
+							
+							if(s8_cnt > 10) 
+								{
+									if(t_ofsset > max_ofset) 	max_ofset = t_ofsset;
+								}
+						}
 					//max_allowed_offset = change_allowed_offset(my_abs(offset.TimeStampLow));
 					minus_plus_calc(  &bw3, &bw1, &bw2, plus);
 					pr_delay.TimeStampHigh = bw3.TimeStampHigh / 2 ;
@@ -636,8 +667,7 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 	else if(synq_state==4)  
 		{
 		stf1 = rx_ts;
-		//synq_interval = rcv_buf[2] & 0xffff00;
-		synq_interval = (rcv_buf[2] >>8) * 1000000;
+		//synq_interval = (rcv_buf[2] >>8) * 1000000;
 		}
 	else if(synq_state==5) 
 				{
@@ -680,7 +710,7 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 				 adj_freq( addend );
 					
 				 synq_state = 0;
-				 HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+				 //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
 			 #endif
 			 afs6_h = ETH->PTPTSHR;
 			 afs6_l = ETH->PTPTSLR;
