@@ -57,8 +57,7 @@
 
 
 #define LWIP_PTP
-//#define z2_synq
-//#define z3_synq
+
 
 #define ptp_port 	1234
 /* USER CODE END Includes */
@@ -103,7 +102,7 @@ uint8_t coarse_flag, offset_mod_flag;
 
 uint16_t udp_320_cnt, port_copy, rad_ofset, s8_cnt;
 //int32_t ptphdr;
-uint8_t ptphdr;
+uint8_t ptphdr,fer, cer, endpr, er_cnt;
 //uint16_t max_allowed_offset;
 //uint8_t ptp_timeout, test_tout_cnt;
 err_t err2;
@@ -112,6 +111,8 @@ double  offset_ns_float, adm_rate;
 int32_t  t_ofsset;
 uint16_t cn1, cn2, cn3, cn4, cn5, cn6, cn7, cn8, cn9, cn10, cn11, cn12;
 uint32_t synq_interval, max_ofset;
+uint16_t fer4, fer5, fer6;
+uint8_t  cercnt;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -553,13 +554,20 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 				{
 					//tx_buf[0] = 0x55; 
 					tx_buf[0] = (0x80 | synq_state);
+					if(synq_state==4)				{fer4++;}
+					else if(synq_state==5)	{fer5++;}
+				  else if(synq_state==6)  {fer6++;}
+					
 					synq_state--;
+					fer = tx_buf[0];
 					//synq_state = 3;
 				}  
 			else		
 				{
 					tx_buf[0] = 0x66;
 					synq_state = 0;
+					cer = tx_buf[0];
+					cercnt++;
 				}
 			err1 = pbuf_take(p, tx_buf, 1);
 			if(err1== ERR_OK) 
@@ -662,6 +670,8 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 					pr_delay.TimeStampLow = bw3.TimeStampLow / 2;
 					af_syth = ETH->PTPTSHR;
 					af_sytl = ETH->PTPTSLR;
+						
+				
 					//delay = ((t2-t1) + (t4-t3))/2;
 				}
 	else if(synq_state==4)  
@@ -710,11 +720,19 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 				 adj_freq( addend );
 					
 				 synq_state = 0;
+				 s8_cnt++;
 				 //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
 			 #endif
 			 afs6_h = ETH->PTPTSHR;
 			 afs6_l = ETH->PTPTSLR;
 			 
+			 	tx_buf[0] = 0x77;
+				err1 = pbuf_take(p, tx_buf, 1);
+				if(err1== ERR_OK) 
+					{
+					udp_connect(udpc, addr, port);
+					udp_send(udpc, p);
+					}
 			}
 			
 		#ifdef z2_synq
