@@ -57,6 +57,9 @@
 
 
 #define LWIP_PTP
+#define z2_synq
+#define z3_synq
+
 
 
 #define ptp_port 	1234
@@ -88,10 +91,12 @@ ETH_TimeStamp 	t1,t2,t3,t4, offset, pr_delay, bw1,bw2, bw3, bw4, bw5, current_ti
 								stf1, stf2, mtf1, mtf2, ts_tmp;
 #ifdef z2_synq
 	ETH_TimeStamp  mtf3, stf3; 
+	uint16_t	fer7;
 #endif
 
 #ifdef z2_synq
 	ETH_TimeStamp  mtf4, stf4; 
+	uint16_t	fer8;
 #endif
 								
 int32_t  mclk_count, diff_count;
@@ -108,7 +113,7 @@ uint8_t ptphdr,fer, cer, endpr, er_cnt;
 err_t err2;
 double  offset_ns_float, adm_rate;
 
-int32_t  t_ofsset;
+int32_t  t_ofsset, endp_ofset;
 uint16_t cn1, cn2, cn3, cn4, cn5, cn6, cn7, cn8, cn9, cn10, cn11, cn12;
 uint32_t synq_interval, max_ofset;
 uint16_t fer4, fer5, fer6;
@@ -557,16 +562,18 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 					if(synq_state==4)				{fer4++;}
 					else if(synq_state==5)	{fer5++;}
 				  else if(synq_state==6)  {fer6++;}
+					else if(synq_state==7)  {fer7++;}
+					else if(synq_state==8)  {fer8++;}
 					
 					synq_state--;
-					fer = tx_buf[0];
+					//fer = tx_buf[0];
 					//synq_state = 3;
 				}  
 			else		
 				{
 					tx_buf[0] = 0x66;
 					synq_state = 0;
-					cer = tx_buf[0];
+					//cer = tx_buf[0];
 					cercnt++;
 				}
 			err1 = pbuf_take(p, tx_buf, 1);
@@ -712,27 +719,26 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 			 mclk_count = ts_tmp.TimeStampLow;
 			 diff_count = mclk_count - sclk_count;
 			 frq_scale_factor[0] = (((mclk_count + diff_count) / sclk_count)+1)/2 ;
-			 //frq_scale_factor[0] = (mclk_count + diff_count) / sclk_count;
-			 addend0 = ETH->PTPTSAR;	
+			 //frq_scale_factor[0] = (mclk_count + diff_count) / sclk_count;	
 			 #ifndef z2_synq
+				 addend0 = ETH->PTPTSAR;
 				 addend = frq_scale_factor[0] * addend0 ;
 					
 				 adj_freq( addend );
 					
 				 synq_state = 0;
 				 s8_cnt++;
-				 //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
-			 #endif
-			 afs6_h = ETH->PTPTSHR;
-			 afs6_l = ETH->PTPTSLR;
-			 
-			 	tx_buf[0] = 0x77;
+				 tx_buf[0] = 0x77;
 				err1 = pbuf_take(p, tx_buf, 1);
 				if(err1== ERR_OK) 
 					{
 					udp_connect(udpc, addr, port);
 					udp_send(udpc, p);
 					}
+				 //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+			 #endif
+			 afs6_h = ETH->PTPTSHR;
+			 afs6_l = ETH->PTPTSLR;	
 			}
 			
 		#ifdef z2_synq
@@ -753,12 +759,21 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 			 //frq_scale_factor[1] = (mclk_count + diff_count) / sclk_count;
 			 //addend0 = ETH->PTPTSAR;
 			 #ifndef z3_synq
+				 addend0 = ETH->PTPTSAR;
 				 mean_frq_scale_factor = (frq_scale_factor[0] + frq_scale_factor[1])/2;				
 				 addend = mean_frq_scale_factor * addend0 ;
 					
 				 adj_freq( addend );
 					
 				 synq_state = 0;	
+				 s8_cnt++;
+				 tx_buf[0] = 0x77;
+				err1 = pbuf_take(p, tx_buf, 1);
+				if(err1== ERR_OK) 
+					{
+					udp_connect(udpc, addr, port);
+					udp_send(udpc, p);
+					}
 			 #endif
 			
 			
@@ -778,7 +793,7 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 			 frq_scale_factor[2] = (((mclk_count + diff_count) / sclk_count)+1)/2 ;
 			 tv_fsf2 = frq_scale_factor[2];
 			 //frq_scale_factor[2] = (mclk_count + diff_count) / sclk_count;
-			 //addend0 = ETH->PTPTSAR;
+
 				
 				
 			 minus_plus_calc( &ts_tmp ,&stf4, &stf1, minus);
@@ -803,6 +818,7 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 			 mean_frq_scale_factor = (frq_scale_factor[0] + frq_scale_factor[1] + frq_scale_factor[2] + frq_scale_factor[3])/4;
 					
 			 //if( /*(my_abs(offset.TimeStampLow) > 1000) &&*/ offset_mod_flag==0)
+			 #ifdef end_adm_rate
 			 if( offset_mod_flag==0 )
 					{
 						//offset_ns_float = offset.TimeStampLow;
@@ -830,9 +846,10 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 								if(t_ofsset > max_ofset) 	max_ofset = t_ofsset;
 							}
 					}
+				#endif
+				endp_ofset = -(stf4.TimeStampLow - mtf4.TimeStampLow - pr_delay.TimeStampLow);
 
-			 
-			
+			 addend0 = ETH->PTPTSAR;
 			 addend = mean_frq_scale_factor * addend0 ;
 			
 			 adj_freq( addend );
