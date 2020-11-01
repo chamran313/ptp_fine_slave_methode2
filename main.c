@@ -58,7 +58,7 @@
 
 #define LWIP_PTP
 #define z2_synq
-#define z3_synq
+//#define z3_synq
 
 
 
@@ -91,12 +91,10 @@ ETH_TimeStamp 	t1,t2,t3,t4, offset, pr_delay, bw1,bw2, bw3, bw4, bw5, current_ti
 								stf1, stf2, mtf1, mtf2, ts_tmp;
 #ifdef z2_synq
 	ETH_TimeStamp  mtf3, stf3; 
-	uint16_t	fer7;
 #endif
 
-#ifdef z2_synq
+#ifdef z3_synq
 	ETH_TimeStamp  mtf4, stf4; 
-	uint16_t	fer8;
 #endif
 								
 int32_t  mclk_count, diff_count;
@@ -116,7 +114,7 @@ double  offset_ns_float, adm_rate;
 int32_t  t_ofsset, endp_ofset;
 uint16_t cn1, cn2, cn3, cn4, cn5, cn6, cn7, cn8, cn9, cn10, cn11, cn12;
 uint32_t synq_interval, max_ofset;
-uint16_t fer4, fer5, fer6;
+uint16_t fer4, fer5, fer6,fer7,fer8;
 uint8_t  cercnt;
 /* USER CODE END PV */
 
@@ -728,6 +726,7 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 					
 				 synq_state = 0;
 				 s8_cnt++;
+				 endp_ofset = -(stf2.TimeStampLow - mtf2.TimeStampLow - pr_delay.TimeStampLow);
 				 tx_buf[0] = 0x77;
 				err1 = pbuf_take(p, tx_buf, 1);
 				if(err1== ERR_OK) 
@@ -759,14 +758,23 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 			 //frq_scale_factor[1] = (mclk_count + diff_count) / sclk_count;
 			 //addend0 = ETH->PTPTSAR;
 			 #ifndef z3_synq
+				 minus_plus_calc( &ts_tmp ,&stf3, &stf1, minus);
+				 sclk_count = ts_tmp.TimeStampLow;
+				 minus_plus_calc( &ts_tmp ,&mtf3, &mtf1, minus);
+				 mclk_count = ts_tmp.TimeStampLow;
+				 diff_count = mclk_count - sclk_count;
+				 frq_scale_factor[2] = (((mclk_count + diff_count) / sclk_count)+1)/2 ;
+				 tv_fsf2 = frq_scale_factor[2];
+				
 				 addend0 = ETH->PTPTSAR;
-				 mean_frq_scale_factor = (frq_scale_factor[0] + frq_scale_factor[1])/2;				
+				 mean_frq_scale_factor = (frq_scale_factor[0] + frq_scale_factor[1]+ frq_scale_factor[2])/3;				
 				 addend = mean_frq_scale_factor * addend0 ;
 					
 				 adj_freq( addend );
 					
 				 synq_state = 0;	
 				 s8_cnt++;
+				 endp_ofset = -(stf3.TimeStampLow - mtf3.TimeStampLow - pr_delay.TimeStampLow);
 				 tx_buf[0] = 0x77;
 				err1 = pbuf_take(p, tx_buf, 1);
 				if(err1== ERR_OK) 
@@ -848,6 +856,7 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 					}
 				#endif
 				endp_ofset = -(stf4.TimeStampLow - mtf4.TimeStampLow - pr_delay.TimeStampLow);
+				
 
 			 addend0 = ETH->PTPTSAR;
 			 addend = mean_frq_scale_factor * addend0 ;
