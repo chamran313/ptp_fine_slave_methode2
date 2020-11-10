@@ -116,6 +116,7 @@ uint16_t cn1, cn2, cn3, cn4, cn5, cn6, cn7, cn8, cn9, cn10, cn11, cn12;
 uint32_t synq_interval, max_ofset;
 uint16_t fer4, fer5, fer6,fer7,fer8;
 uint8_t  cercnt;
+ETH_TimeStamp target_time;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -197,6 +198,11 @@ int main(void)
 	ip_asign();
   udp_slave_init();
 	
+	HAL_TIM_Base_Start_IT(&htim2);
+	
+	target_time.TimeStampHigh = 50;
+	target_time.TimeStampLow = 0;
+	load_target_time(&target_time);
 	//max_allowed_offset = first_max_allowed_offset;
   //HAL_TIM_Base_Start_IT(&htim4);
 	//coarse_flag = 1;
