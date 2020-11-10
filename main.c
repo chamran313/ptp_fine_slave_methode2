@@ -144,39 +144,20 @@ int32_t my_abs(int32_t a);
 //ETH_TimeStamp nsec_minus(ETH_TimeStamp* t);
 void  minus_plus_calc(ETH_TimeStamp *time ,const ETH_TimeStamp *t1, const ETH_TimeStamp *t2, uint8_t opr );
 void nsec_minus(ETH_TimeStamp *t);
+void load_target_time(ETH_TimeStamp *tg_time);
 //uint16_t change_allowed_offset(int32_t ofset_ns);
 //void udp_send1(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-/*void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-if(htim->Instance == TIM4)
+if(htim->Instance == TIM2)
 	{
-		if(synq_state > 3)		ptp_timeout++;
-		if(ptp_timeout>3)
-			{
-				udp_send1();
-				test_tout_cnt++;
-				
-				tx_buf[0] = 0x55;
-				pb1 = pbuf_alloc(PBUF_TRANSPORT, 1, PBUF_RAM);
-				err2 = pbuf_take(pb1, tx_buf, 1);
-				if(err2== ERR_OK) 
-					{
-					//Connect to the remote client 
-					udp_connect(udpc1, &remote_ip, port_copy);
-					udp_send(udpc1, pb1);
-					pbuf_free(pb1);
-					ptp_timeout = 0;
-					test_tout_cnt++;
-					}
-			
-			}
-		
+		HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_3);
 	}
 
-}*/
+}
 /* USER CODE END 0 */
 
 /**
@@ -407,6 +388,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+	
+	/*Configure GPIO pin : PG2 PG3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
 }
 
@@ -1030,7 +1018,17 @@ void ETH_PTP_SET_TIME( ETH_TimeStamp *time)
 
 }
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void load_target_time(ETH_TimeStamp *tg_time)
+{
+	ETH->PTPTTHR = tg_time->TimeStampHigh;
+	ETH->PTPTTLR = tg_time->TimeStampLow;
+	
+	ETH->MACIMR &= 0XFFFFFDFF; // unmask timestamp trigger interrupt
+	
+	ETH->PTPTSCR |= 0x00000010 ; //Time stamp interrupt trigger enable
 
+}
 /*uint16_t change_allowed_offset(int32_t ofset_ns)
 {
 	uint16_t  allow_offset = 0;
