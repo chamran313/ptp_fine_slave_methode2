@@ -117,6 +117,8 @@ uint32_t synq_interval, max_ofset;
 uint16_t fer4, fer5, fer6,fer7,fer8;
 uint8_t  cercnt;
 ETH_TimeStamp target_time;
+uint32_t  sum_offset;
+uint16_t  mean_offset;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -666,6 +668,8 @@ void udp_receive_callback(void *arg, struct udp_pcb *udpc, struct pbuf *p, const
 							if(s8_cnt > 10) 
 								{
 									if(t_ofsset > max_ofset) 	max_ofset = t_ofsset;
+									sum_offset = sum_offset + t_ofsset;
+									mean_offset = sum_offset / (s8_cnt - 10);
 								}
 						}
 					//max_allowed_offset = change_allowed_offset(my_abs(offset.TimeStampLow));
